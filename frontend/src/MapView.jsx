@@ -1,12 +1,19 @@
 import { useEffect, useRef, useState } from "react";
 import mapboxgl from "mapbox-gl";
 import MapboxDraw from "@mapbox/mapbox-gl-draw";
-
 import "mapbox-gl/dist/mapbox-gl.css";
 import "@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css";
 
 import api from "./api";
 import AnalyticsChart from "./AnalyticsChart";
+
+import {
+  MapPin,
+  Trees,
+  BarChart3,
+  X,
+  CalendarDays,
+} from "lucide-react";
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN;
 
@@ -15,6 +22,7 @@ function MapView({ projectId }) {
   const map = useRef(null);
 
   const [selectedSite, setSelectedSite] = useState(null);
+  const [siteCount, setSiteCount] = useState(0);
 
   useEffect(() => {
     if (map.current) return;
@@ -43,20 +51,25 @@ function MapView({ projectId }) {
 
     mapInstance.addControl(draw, "top-left");
 
-    // -----------------------------
-    // Load saved sites
-    // -----------------------------
     const loadSites = async () => {
       try {
         const response = await api.get("/sites/");
 
-        response.data.forEach((site) => {
+        const projectSites = response.data.filter(
+          (site) => site.project_id === projectId
+        );
+
+        setSiteCount(projectSites.length);
+
+        projectSites.forEach((site) => {
           if (
             site.geometry &&
             site.geometry.type === "Polygon" &&
             site.geometry.coordinates?.length
           ) {
-            mapInstance.addSource(`site-${site.id}`, {
+            const sourceId = `site-${site.id}`;
+
+            mapInstance.addSource(sourceId, {
               type: "geojson",
               data: {
                 type: "Feature",
@@ -72,22 +85,23 @@ function MapView({ projectId }) {
             mapInstance.addLayer({
               id: `site-fill-${site.id}`,
               type: "fill",
-              source: `site-${site.id}`,
+              source: sourceId,
               paint: {
-                "fill-opacity": 0.35,
+                "fill-color": "#2e7d32",
+                "fill-opacity": 0.28,
               },
             });
 
             mapInstance.addLayer({
               id: `site-outline-${site.id}`,
               type: "line",
-              source: `site-${site.id}`,
+              source: sourceId,
               paint: {
+                "line-color": "#1b5e20",
                 "line-width": 3,
               },
             });
 
-            // Click polygon
             mapInstance.on(
               "click",
               `site-fill-${site.id}`,
@@ -96,12 +110,12 @@ function MapView({ projectId }) {
               }
             );
 
-            // Pointer cursor
             mapInstance.on(
               "mouseenter",
               `site-fill-${site.id}`,
               () => {
-                mapInstance.getCanvas().style.cursor = "pointer";
+                mapInstance.getCanvas().style.cursor =
+                  "pointer";
               }
             );
 
@@ -109,7 +123,8 @@ function MapView({ projectId }) {
               "mouseleave",
               `site-fill-${site.id}`,
               () => {
-                mapInstance.getCanvas().style.cursor = "";
+                mapInstance.getCanvas().style.cursor =
+                  "";
               }
             );
           }
@@ -121,9 +136,6 @@ function MapView({ projectId }) {
 
     mapInstance.on("load", loadSites);
 
-    // -----------------------------
-    // Save newly drawn polygon
-    // -----------------------------
     mapInstance.on("draw.create", async (event) => {
       const geometry = event.features[0].geometry;
 
@@ -132,17 +144,20 @@ function MapView({ projectId }) {
           name: "New Forest Site",
           description: "Site created from map",
           project_id: projectId,
-          geometry: geometry,
+          geometry,
         });
+
+        setSiteCount((count) => count + 1);
 
         alert("Site saved successfully!");
 
+        window.location.reload();
       } catch (error) {
         console.error("Error saving site:", error);
 
         alert(
           error.response?.data?.detail ||
-          "Failed to save site."
+            "Failed to save site."
         );
       }
     });
@@ -154,65 +169,108 @@ function MapView({ projectId }) {
   }, [projectId]);
 
   return (
-    <div>
-      {/* Map */}
+    <div className="map-wrapper">
+
+      {/* MAP TOOLBAR INFO */}
+      <div className="map-info-bar">
+        <div className="map-info-item">
+          <MapPin size={17} />
+          <span>Interactive Map</span>
+        </div>
+
+        <div className="map-info-item">
+          <Trees size={17} />
+          <span>
+            {siteCount} site
+            {siteCount !== 1 ? "s" : ""} mapped
+          </span>
+        </div>
+
+        <div className="map-instruction">
+          Use the polygon tool to draw a new site
+        </div>
+      </div>
+
+      {/* MAP */}
       <div
         ref={mapContainer}
         className="map-container"
       />
 
-      {/* Site Details */}
+      {/* SITE DETAILS */}
       {selectedSite && (
-        <div
-          style={{
-            marginTop: "20px",
-            padding: "20px",
-            background: "white",
-            borderRadius: "12px",
-            boxShadow: "0 4px 15px rgba(0,0,0,0.08)",
-          }}
-        >
-          <h3>Site Details</h3>
+        <div className="site-details-panel">
 
-          <p>
-            <strong>Site Name:</strong>{" "}
-            {selectedSite.name}
-          </p>
+          <div className="site-details-header">
 
-          <p>
-            <strong>Description:</strong>{" "}
-            {selectedSite.description}
-          </p>
+            <div className="site-title-area">
+              <div className="site-icon">
+                <MapPin size={21} />
+              </div>
 
-          <p>
-            <strong>Site ID:</strong>{" "}
-            {selectedSite.id}
-          </p>
+              <div>
+                <span>SELECTED SITE</span>
+                <h3>{selectedSite.name}</h3>
+              </div>
+            </div>
 
-          <p>
-            <strong>Project ID:</strong>{" "}
-            {selectedSite.project_id}
-          </p>
+            <button
+              className="close-site-button"
+              onClick={() => setSelectedSite(null)}
+              aria-label="Close site details"
+            >
+              <X size={20} />
+            </button>
 
-          {/* Analytics */}
-          <AnalyticsChart
-            siteId={selectedSite.id}
-          />
+          </div>
 
-          <button
-            onClick={() => setSelectedSite(null)}
-            style={{
-              marginTop: "15px",
-              padding: "10px 18px",
-              border: "none",
-              borderRadius: "6px",
-              cursor: "pointer",
-            }}
-          >
-            Close
-          </button>
+          <div className="site-meta-grid">
+
+            <div className="site-meta-card">
+              <span>Site ID</span>
+              <strong>#{selectedSite.id}</strong>
+            </div>
+
+            <div className="site-meta-card">
+              <span>Project ID</span>
+              <strong>#{selectedSite.project_id}</strong>
+            </div>
+
+          </div>
+
+          <div className="site-description">
+            <span>Description</span>
+
+            <p>
+              {selectedSite.description ||
+                "No description available for this site."}
+            </p>
+          </div>
+
+          <div className="analytics-heading">
+            <div>
+              <div className="analytics-title">
+                <BarChart3 size={20} />
+                <h3>Performance Analytics</h3>
+              </div>
+
+              <p>
+                Environmental performance over time
+              </p>
+            </div>
+
+            <CalendarDays size={20} />
+          </div>
+
+          <div className="analytics-container">
+            <AnalyticsChart
+              siteId={selectedSite.id}
+            />
+          </div>
+
         </div>
       )}
+
     </div>
   );
 }

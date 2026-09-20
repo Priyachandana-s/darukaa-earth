@@ -2,19 +2,25 @@ import { useEffect, useState } from "react";
 import "./App.css";
 import MapView from "./MapView";
 import api from "./api";
+import {
+  Leaf,
+  Map,
+  FolderKanban,
+  BarChart3,
+  LogOut,
+  Plus,
+  ArrowRight,
+} from "lucide-react";
 
 function App() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
-
   const [message, setMessage] = useState("");
 
-  // Remember login after refresh
   const [loggedIn, setLoggedIn] = useState(
     !!localStorage.getItem("token")
   );
-
   const [isRegister, setIsRegister] = useState(false);
 
   const [projects, setProjects] = useState([]);
@@ -23,9 +29,8 @@ function App() {
   const [projectName, setProjectName] = useState("");
   const [projectDescription, setProjectDescription] = useState("");
 
-  // -----------------------------
-  // Login
-  // -----------------------------
+  const [sites, setSites] = useState([]);
+
   const handleLogin = async (e) => {
     e.preventDefault();
 
@@ -35,11 +40,7 @@ function App() {
         password,
       });
 
-      localStorage.setItem(
-        "token",
-        response.data.access_token
-      );
-
+      localStorage.setItem("token", response.data.access_token);
       setLoggedIn(true);
       setMessage("");
     } catch (error) {
@@ -49,9 +50,6 @@ function App() {
     }
   };
 
-  // -----------------------------
-  // Register
-  // -----------------------------
   const handleRegister = async (e) => {
     e.preventDefault();
 
@@ -62,26 +60,18 @@ function App() {
         password,
       });
 
-      setMessage(
-        "Registration successful! Please login."
-      );
-
+      setMessage("Registration successful! Please login.");
       setName("");
       setEmail("");
       setPassword("");
-
       setIsRegister(false);
     } catch (error) {
       setMessage(
-        error.response?.data?.detail ||
-        "Registration failed"
+        error.response?.data?.detail || "Registration failed"
       );
     }
   };
 
-  // -----------------------------
-  // Fetch Projects
-  // -----------------------------
   const fetchProjects = async () => {
     try {
       const response = await api.get("/projects/");
@@ -94,12 +84,8 @@ function App() {
         setSelectedProject(null);
       }
     } catch (error) {
-      console.error(
-        "Error fetching projects:",
-        error
-      );
+      console.error("Error fetching projects:", error);
 
-      // Token is invalid/expired
       if (error.response?.status === 401) {
         localStorage.removeItem("token");
         setLoggedIn(false);
@@ -107,303 +93,449 @@ function App() {
     }
   };
 
-  // -----------------------------
-  // Load projects after login
-  // -----------------------------
+  const fetchSites = async () => {
+    try {
+      const response = await api.get("/sites/");
+      setSites(response.data);
+    } catch (error) {
+      console.error("Error fetching sites:", error);
+    }
+  };
+
   useEffect(() => {
     if (loggedIn) {
       fetchProjects();
+      fetchSites();
     }
   }, [loggedIn]);
 
-  // -----------------------------
-  // Create Project
-  // -----------------------------
   const handleCreateProject = async (e) => {
     e.preventDefault();
 
     if (!projectName.trim()) return;
 
     try {
-      const response = await api.post(
-        "/projects/",
-        {
-          name: projectName,
-          description: projectDescription,
-        }
-      );
+      const response = await api.post("/projects/", {
+        name: projectName,
+        description: projectDescription,
+      });
 
       setProjectName("");
       setProjectDescription("");
 
       setSelectedProject(response.data);
 
-      fetchProjects();
+      await fetchProjects();
     } catch (error) {
-      console.error(
-        "Error creating project:",
-        error
-      );
+      console.error("Error creating project:", error);
     }
   };
 
-  // -----------------------------
-  // Logout
-  // -----------------------------
   const handleLogout = () => {
     localStorage.removeItem("token");
-
     setLoggedIn(false);
     setEmail("");
     setPassword("");
     setProjects([]);
     setSelectedProject(null);
+    setSites([]);
   };
 
-  // -----------------------------
-  // Dashboard
-  // -----------------------------
-  if (loggedIn) {
-    return (
-      <div className="dashboard">
+  const projectSites = selectedProject
+    ? sites.filter(
+        (site) => site.project_id === selectedProject.id
+      )
+    : [];
 
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <div>
-            <h1>Darukaa.Earth</h1>
-            <h2>Project Dashboard</h2>
+  if (!loggedIn) {
+    return (
+      <div className="login-page">
+        <div className="login-card">
+          <div className="brand-icon">
+            <Leaf size={32} />
           </div>
 
-          <button
-            onClick={handleLogout}
-            style={{
-              padding: "10px 18px",
-              border: "none",
-              borderRadius: "6px",
-              background: "#555",
-              color: "white",
-              cursor: "pointer",
-            }}
+          <h1>Darukaa.Earth</h1>
+
+          <p className="login-subtitle">
+            Geospatial Carbon & Biodiversity Platform
+          </p>
+
+          <h2>
+            {isRegister ? "Create your account" : "Welcome back"}
+          </h2>
+
+          <p className="form-description">
+            {isRegister
+              ? "Create an account to manage your projects."
+              : "Sign in to access your environmental projects."}
+          </p>
+
+          <form
+            onSubmit={
+              isRegister ? handleRegister : handleLogin
+            }
           >
-            Logout
-          </button>
-        </div>
+            {isRegister && (
+              <input
+                type="text"
+                placeholder="Full name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+              />
+            )}
 
-        {/* Create Project */}
-        <div className="dashboard-card">
-          <h3>Create New Project</h3>
-
-          <form onSubmit={handleCreateProject}>
             <input
-              type="text"
-              placeholder="Project name"
-              value={projectName}
-              onChange={(e) =>
-                setProjectName(e.target.value)
-              }
+              type="email"
+              placeholder="Email address"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
             />
 
             <input
-              type="text"
-              placeholder="Project description"
-              value={projectDescription}
-              onChange={(e) =>
-                setProjectDescription(e.target.value)
-              }
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
             />
 
-            <button type="submit">
-              Create Project
+            <button type="submit" className="primary-button">
+              {isRegister ? "Create Account" : "Sign In"}
             </button>
           </form>
-        </div>
 
-        {/* Projects */}
-        <div className="dashboard-card">
-          <h3>Projects</h3>
-
-          {projects.length === 0 ? (
-            <p>No projects found.</p>
-          ) : (
-            <>
-              <select
-                value={selectedProject?.id || ""}
-                onChange={(e) => {
-                  const project = projects.find(
-                    (item) =>
-                      item.id ===
-                      Number(e.target.value)
-                  );
-
-                  setSelectedProject(project);
-                }}
-                style={{
-                  width: "100%",
-                  padding: "12px",
-                  border: "1px solid #ccc",
-                  borderRadius: "6px",
-                  marginBottom: "15px",
-                }}
-              >
-                {projects.map((project) => (
-                  <option
-                    key={project.id}
-                    value={project.id}
-                  >
-                    {project.name}
-                  </option>
-                ))}
-              </select>
-
-              {selectedProject && (
-                <div>
-                  <h4>
-                    {selectedProject.name}
-                  </h4>
-
-                  <p>
-                    {selectedProject.description}
-                  </p>
-
-                  <p>
-                    <strong>
-                      Project ID:
-                    </strong>{" "}
-                    {selectedProject.id}
-                  </p>
-                </div>
-              )}
-            </>
+          {message && (
+            <p className="auth-message">{message}</p>
           )}
+
+          <div className="switch-auth">
+            {isRegister
+              ? "Already have an account?"
+              : "Don't have an account?"}
+
+            <button
+              type="button"
+              onClick={() => {
+                setIsRegister(!isRegister);
+                setMessage("");
+              }}
+            >
+              {isRegister ? "Sign in" : "Create one"}
+            </button>
+          </div>
         </div>
-
-        {/* Map */}
-        <div className="dashboard-card">
-          <h3>Project Map</h3>
-
-          {selectedProject ? (
-            <>
-              <p>
-                Drawing sites for:
-                <strong>
-                  {" "}
-                  {selectedProject.name}
-                </strong>
-              </p>
-
-              <MapView
-                projectId={selectedProject.id}
-              />
-            </>
-          ) : (
-            <p>
-              Create a project first to add
-              geographical sites.
-            </p>
-          )}
-        </div>
-
       </div>
     );
   }
 
-  // -----------------------------
-  // Login / Register
-  // -----------------------------
   return (
-    <div className="login-container">
+    <div className="app-shell">
 
-      <h1>Darukaa.Earth</h1>
+      {/* SIDEBAR */}
+      <aside className="sidebar">
 
-      <h2>
-        {isRegister
-          ? "Create Account"
-          : "Login"}
-      </h2>
+        <div className="sidebar-brand">
+          <div className="brand-small-icon">
+            <Leaf size={22} />
+          </div>
 
-      <form
-        onSubmit={
-          isRegister
-            ? handleRegister
-            : handleLogin
-        }
-      >
+          <div>
+            <h2>Darukaa</h2>
+            <span>.Earth</span>
+          </div>
+        </div>
 
-        {isRegister && (
-          <input
-            type="text"
-            placeholder="Name"
-            value={name}
-            onChange={(e) =>
-              setName(e.target.value)
+        <div className="sidebar-section">
+          <p className="sidebar-label">WORKSPACE</p>
+
+          <button className="sidebar-link active">
+            <FolderKanban size={18} />
+            Projects
+          </button>
+
+          <button className="sidebar-link">
+            <Map size={18} />
+            Map Explorer
+          </button>
+
+          <button className="sidebar-link">
+            <BarChart3 size={18} />
+            Analytics
+          </button>
+        </div>
+
+        <div className="sidebar-bottom">
+          <div className="user-mini">
+            <div className="avatar">
+              {email.charAt(0).toUpperCase()}
+            </div>
+
+            <div>
+              <strong>Admin</strong>
+              <span>{email}</span>
+            </div>
+          </div>
+
+          <button
+            className="logout-link"
+            onClick={handleLogout}
+          >
+            <LogOut size={18} />
+            Logout
+          </button>
+        </div>
+      </aside>
+
+      {/* MAIN CONTENT */}
+      <main className="main-content">
+
+        {/* TOP BAR */}
+        <header className="topbar">
+          <div>
+            <p className="eyebrow">ENVIRONMENTAL PLATFORM</p>
+
+            <h1>Project Dashboard</h1>
+
+            <p className="topbar-subtitle">
+              Manage your carbon and biodiversity projects
+            </p>
+          </div>
+
+          <button
+            className="new-project-button"
+            onClick={() =>
+              document
+                .getElementById("create-project")
+                ?.scrollIntoView({
+                  behavior: "smooth",
+                })
             }
-            required
-          />
-        )}
+          >
+            <Plus size={18} />
+            New Project
+          </button>
+        </header>
 
-        <input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(e) =>
-            setEmail(e.target.value)
-          }
-          required
-        />
+        {/* STAT CARDS */}
+        <section className="stats-grid">
 
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) =>
-            setPassword(e.target.value)
-          }
-          required
-        />
+          <div className="stat-card">
+            <div className="stat-icon">
+              <FolderKanban size={22} />
+            </div>
 
-        <button type="submit">
-          {isRegister
-            ? "Register"
-            : "Login"}
-        </button>
+            <div>
+              <span>Total Projects</span>
+              <strong>{projects.length}</strong>
+            </div>
+          </div>
 
-      </form>
+          <div className="stat-card">
+            <div className="stat-icon">
+              <Map size={22} />
+            </div>
 
-      {message && (
-        <p>{message}</p>
-      )}
+            <div>
+              <span>Total Sites</span>
+              <strong>{sites.length}</strong>
+            </div>
+          </div>
 
-      <p style={{ marginTop: "20px" }}>
-        {isRegister
-          ? "Already have an account?"
-          : "Don't have an account?"}
+          <div className="stat-card">
+            <div className="stat-icon">
+              <BarChart3 size={22} />
+            </div>
 
-        <button
-          type="button"
-          onClick={() => {
-            setIsRegister(!isRegister);
-            setMessage("");
-          }}
-          style={{
-            marginLeft: "8px",
-            border: "none",
-            background: "none",
-            color: "#2e7d32",
-            cursor: "pointer",
-            fontWeight: "bold",
-          }}
-        >
-          {isRegister
-            ? "Login"
-            : "Register"}
-        </button>
-      </p>
+            <div>
+              <span>Tracked Metrics</span>
+              <strong>2</strong>
+            </div>
+          </div>
 
+        </section>
+
+        <div className="dashboard-grid">
+
+          {/* CREATE PROJECT */}
+          <section
+            className="dashboard-card create-card"
+            id="create-project"
+          >
+            <div className="card-heading">
+              <div>
+                <span className="section-tag">
+                  PROJECT MANAGEMENT
+                </span>
+
+                <h2>Create New Project</h2>
+
+                <p>
+                  Start a new environmental monitoring
+                  project.
+                </p>
+              </div>
+
+              <div className="card-icon">
+                <Plus size={22} />
+              </div>
+            </div>
+
+            <form onSubmit={handleCreateProject}>
+              <input
+                type="text"
+                placeholder="Project name"
+                value={projectName}
+                onChange={(e) =>
+                  setProjectName(e.target.value)
+                }
+              />
+
+              <input
+                type="text"
+                placeholder="Project description"
+                value={projectDescription}
+                onChange={(e) =>
+                  setProjectDescription(e.target.value)
+                }
+              />
+
+              <button
+                type="submit"
+                className="primary-button"
+              >
+                Create Project
+                <ArrowRight size={18} />
+              </button>
+            </form>
+          </section>
+
+          {/* PROJECTS */}
+          <section className="dashboard-card projects-card">
+
+            <div className="card-heading">
+              <div>
+                <span className="section-tag">
+                  YOUR WORKSPACE
+                </span>
+
+                <h2>Projects</h2>
+
+                <p>
+                  Select a project to explore its sites.
+                </p>
+              </div>
+
+              <div className="card-icon">
+                <FolderKanban size={22} />
+              </div>
+            </div>
+
+            {projects.length === 0 ? (
+              <div className="empty-state">
+                <FolderKanban size={38} />
+
+                <h3>No projects yet</h3>
+
+                <p>
+                  Create your first project to start
+                  mapping environmental sites.
+                </p>
+              </div>
+            ) : (
+              <div className="project-list">
+
+                {projects.map((project) => (
+                  <button
+                    key={project.id}
+                    className={`project-item ${
+                      selectedProject?.id === project.id
+                        ? "selected"
+                        : ""
+                    }`}
+                    onClick={() =>
+                      setSelectedProject(project)
+                    }
+                  >
+                    <div className="project-item-icon">
+                      <Leaf size={18} />
+                    </div>
+
+                    <div>
+                      <strong>{project.name}</strong>
+
+                      <span>
+                        {project.description ||
+                          "Environmental project"}
+                      </span>
+                    </div>
+
+                    <ArrowRight size={18} />
+                  </button>
+                ))}
+
+              </div>
+            )}
+          </section>
+
+        </div>
+
+        {/* MAP */}
+        <section className="map-section dashboard-card">
+
+          <div className="map-header">
+
+            <div>
+              <span className="section-tag">
+                GEOSPATIAL ANALYSIS
+              </span>
+
+              <h2>Project Map</h2>
+
+              {selectedProject ? (
+                <p>
+                  Mapping sites for{" "}
+                  <strong>
+                    {selectedProject.name}
+                  </strong>
+                </p>
+              ) : (
+                <p>
+                  Create a project to begin mapping sites.
+                </p>
+              )}
+            </div>
+
+            {selectedProject && (
+              <div className="site-count">
+                <Map size={17} />
+                {projectSites.length} site
+                {projectSites.length !== 1 ? "s" : ""}
+              </div>
+            )}
+
+          </div>
+
+          {selectedProject ? (
+            <MapView projectId={selectedProject.id} />
+          ) : (
+            <div className="map-placeholder">
+              <Map size={48} />
+
+              <h3>Your map will appear here</h3>
+
+              <p>
+                Create a project first, then draw
+                geographical sites on the map.
+              </p>
+            </div>
+          )}
+
+        </section>
+
+      </main>
     </div>
   );
 }
