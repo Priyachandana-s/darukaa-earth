@@ -1,5 +1,13 @@
 # 🌿 Darukaa.Earth
 
+### 🌍 Live Demo
+[**Open Darukaa.Earth →**](https://darukaa-earth-frontend-gkav.onrender.com)
+
+### 💻 GitHub Repository
+[**View Source Code →**](https://github.com/Priyachandana-s/darukaa-earth)
+
+---
+
 A full-stack geospatial platform for managing environmental projects, geographical sites, and carbon & biodiversity performance data.
 
 ## 📌 Overview
